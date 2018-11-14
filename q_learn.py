@@ -50,7 +50,7 @@ def instantiate_q_dict(world):
     return q_dict
 
 
-def choose_action(q_dict, state, greed_policy=0.1):
+def choose_action(q_dict, state, greed_policy=0.85):
     '''
     ::param state:: tuple of agent's current position (row, col)
     ::param greed_policy:: float of the probability that the agent will take the current "best" path
@@ -60,7 +60,12 @@ def choose_action(q_dict, state, greed_policy=0.1):
     rand_val = np.random.random()
     if rand_val < greed_policy:
         # Take the "best" path
-        action = q_dict[state].index(max(q_dict[state]))
+        if all(elm == 0 for elm in q_dict[state]):
+            # If they're all 0, just randomly pick
+            action = np.random.choice( [i for i in range( len( q_dict[state] ) )] )
+        else :
+            # Take best path
+            action = q_dict[state].index(max(q_dict[state]))
     else:
         # Choose a random action 
         action = np.random.choice( [i for i in range( len( q_dict[state] ) )] )
@@ -116,31 +121,35 @@ def _dist_to_target(state, target):
     under = (target[0] - state[0])**2 + (target[1] - state[1])**2
     return sqrt(under)
 
-def choose_reward(world, state, action, target, win=2):
+def decide_reward(world, state, action, target, q_dict, win=2, discount=0.9):
     
     # If move is invalid, heavily penalize
     if validate_action(world, state, action) is False:
 
         return (-1)
 
+
+    # At the new state, you get part of the Q value of the best move in the new state
+    discounted_future_reward = discount * max(q_dict[(state[0] + action[0], state[1] + action[1])])
     # If position is the target, heavily reward
     # TODO store all moves, if the thing ends up winning, reward all moves better than if it doesn't
-    elif _get_new_state_world_val(world, state, action) == win:
+    if _get_new_state_world_val(world, state, action) == win:
 
-        return 5
+        return 3
 
-    # If it gets closer to the target reward
-    elif _dist_to_target(state, target) < _dist_to_target((state[0] + action[0], state[1] + action[1]), target):
+    # NO HELP
+    # # If it gets closer to the target reward
+    # elif _dist_to_target(state, target) < _dist_to_target((state[0] + action[0], state[1] + action[1]), target):
 
-        return 1
+    #     return 1 + discounted_future_reward
 
     # No reward if no progress
     else:
 
-        return 0
+        return 0 + discounted_future_reward - 0.1
 
 
-def update_q_dict(state, action, reward, q_dict):
+def update_q_dict(state, action, reward, q_dict, learning_rate=0.1):
     # to account for future reward,
     # Each states Q should be it's accumulated reward
     # plus a some amount of the Q value of the best action
@@ -157,7 +166,7 @@ def update_q_dict(state, action, reward, q_dict):
     elif action == (1, 0):
         index = 3
 
-    q_dict[state][index] += reward
+    q_dict[state][index] += reward * learning_rate
 
     return q_dict
 
@@ -169,33 +178,48 @@ def training():
     q_dict = instantiate_q_dict(world)
     target = [11, 10]
 
+
+    # TODO give a negative reward every move to minimize # of moves
+    # TODO Q value decay
     # For displaying the map, put agent on map and store value
     # Move agent, replace old value, store new value
     stored_value = [[0, 0], 0]
-
-    while count < 100000:
-        time.sleep(0.05)
-
-        stored_value = [[agent.state[0], agent.state[1]], world[agent.state[0]][agent.state[1]]]
-        world[agent.state[0]][agent.state[1]] = agent.visual
-        # Clear the terminal before new frame
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print(world)
-        world[stored_value[0][0]][stored_value[0][1]] = stored_value[1]
-
+    complete = 0
+    moves_array = []
+    while complete < 75:
+        if complete % 2 == 0: #only display game every 5 games
+            stored_value = [[agent.state[0], agent.state[1]], world[agent.state[0]][agent.state[1]]]
+            world[agent.state[0]][agent.state[1]] = agent.visual
+            # Clear the terminal before new frame
+            os.system('cls' if os.name == 'nt' else 'clear')
+            print(world)
+            world[stored_value[0][0]][stored_value[0][1]] = stored_value[1]
+            print(complete)
         # Action returned as tuple with position deltas (-1, 0)
         action = choose_action(q_dict, agent.state)
         while not validate_action(world, agent.state, action):
             action = choose_action(q_dict, agent.state)
 
         # Reward returned as a number
-        reward = choose_reward(world, agent.state, action, target)
+        reward = decide_reward(world, agent.state, action, target, q_dict)
 
         q_dict = update_q_dict(agent.state, action, reward, q_dict)
 
-        agent.state = (agent.state[0] + action[0], agent.state[1] + action[1])
+        if _get_new_state_world_val(world, agent.state, action) == 2: #terminal state
+            agent.state = (1, 1)
+            complete += 1
+            moves_array.append(count)
+            count = 0
+            time.sleep(2)
+        else:
+            agent.state = (agent.state[0] + action[0], agent.state[1] + action[1])
 
         # TODO, when agent wins, put him back at the start
         count += 1
+
+    print(moves_array)
+    msg = ''
+    while msg != 'q':
+        msg = input('Did you finish?')
 
 training()
