@@ -146,7 +146,7 @@ def decide_reward(world, state, action, target, q_dict, win=2, discount=0.9):
     # No reward if no progress
     else:
 
-        return 0 + discounted_future_reward - 0.1
+        return 0 + discounted_future_reward
 
 
 def update_q_dict(state, action, reward, q_dict, learning_rate=0.1):
