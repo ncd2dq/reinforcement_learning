@@ -135,7 +135,7 @@ def decide_reward(world, state, action, target, q_dict, win=2, discount=0.9):
     # TODO store all moves, if the thing ends up winning, reward all moves better than if it doesn't
     if _get_new_state_world_val(world, state, action) == win:
 
-        return 3
+        return 100
 
     # NO HELP
     # # If it gets closer to the target reward
@@ -145,8 +145,8 @@ def decide_reward(world, state, action, target, q_dict, win=2, discount=0.9):
 
     # No reward if no progress
     else:
-
-        return 0 + discounted_future_reward
+        # Punish slightly if not correct space to minimize number of moves
+        return 0 + discounted_future_reward - 0.01
 
 
 def update_q_dict(state, action, reward, q_dict, learning_rate=0.1):
@@ -186,17 +186,24 @@ def training():
     stored_value = [[0, 0], 0]
     complete = 0
     moves_array = []
-    while complete < 75:
-        if complete % 2 == 0: #only display game every 5 games
+    # Slowly increase greedy factor
+    # Maximum exploration at first, then maximum exploitation by end
+    greedy = 0.7
+    remainder = 1 - greedy
+    increment = remainder / 85
+    while complete < 200:
+        if complete % 10 == 0 and complete != 0: #only display game every 5 games
             stored_value = [[agent.state[0], agent.state[1]], world[agent.state[0]][agent.state[1]]]
             world[agent.state[0]][agent.state[1]] = agent.visual
             # Clear the terminal before new frame
             os.system('cls' if os.name == 'nt' else 'clear')
             print(world)
             world[stored_value[0][0]][stored_value[0][1]] = stored_value[1]
-            print(complete)
+            print('Stage: ', complete)
+            print('Greedy Policy: ', greedy)
         # Action returned as tuple with position deltas (-1, 0)
-        action = choose_action(q_dict, agent.state)
+
+        action = choose_action(q_dict, agent.state, greed_policy=greedy)
         while not validate_action(world, agent.state, action):
             action = choose_action(q_dict, agent.state)
 
@@ -208,6 +215,7 @@ def training():
         if _get_new_state_world_val(world, agent.state, action) == 2: #terminal state
             agent.state = (1, 1)
             complete += 1
+            greedy += increment
             moves_array.append(count)
             count = 0
             time.sleep(2)
