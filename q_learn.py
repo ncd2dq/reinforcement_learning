@@ -190,7 +190,7 @@ def training():
     # Maximum exploration at first, then maximum exploitation by end
     greedy = 0.7
     remainder = 1 - greedy
-    increment = remainder / 85
+    increment = remainder / 95
     while complete < 200:
         if complete % 10 == 0 and complete != 0: #only display game every 5 games
             stored_value = [[agent.state[0], agent.state[1]], world[agent.state[0]][agent.state[1]]]
@@ -215,7 +215,8 @@ def training():
         if _get_new_state_world_val(world, agent.state, action) == 2: #terminal state
             agent.state = (1, 1)
             complete += 1
-            greedy += increment
+            if greedy < 1.00:
+                greedy += increment
             moves_array.append(count)
             count = 0
             time.sleep(2)
